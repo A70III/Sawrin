@@ -171,3 +171,41 @@ export interface MonorepoInfo {
   /** Map of package name -> Workspace */
   packageMap: Map<string, Workspace>;
 }
+
+// ============================================
+// Configuration Types
+// ============================================
+
+/**
+ * Custom risk weight overrides
+ */
+export interface RiskWeightOverrides {
+  authSecurityFile?: number;
+  databaseFile?: number;
+  configFile?: number;
+  sharedUtility?: number;
+  coreFile?: number;
+  crossPackageChange?: number;
+}
+
+/**
+ * Sawrin configuration file structure
+ */
+export interface SawrinConfig {
+  /** Glob patterns for files to ignore during analysis */
+  ignorePatterns?: string[];
+  /** Glob patterns for test files (override default detection) */
+  testPatterns?: string[];
+  /** Path to Bruno collection directory */
+  brunoPath?: string;
+  /** Custom risk weight overrides */
+  riskWeights?: RiskWeightOverrides;
+  /** Folder path mappings (for non-standard structures) */
+  folderMappings?: Record<string, string>;
+  /** Files/patterns to always consider high risk */
+  highRiskFiles?: string[];
+  /** Files/patterns to always consider low risk */
+  lowRiskFiles?: string[];
+  /** Maximum depth for dependency traversal */
+  maxDepth?: number;
+}

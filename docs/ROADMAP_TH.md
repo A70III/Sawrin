@@ -63,6 +63,11 @@
 - `npx sawrin --interactive`
 - แสดง list test ที่กระทบ แล้วให้ติวเลือกเพื่อสั่งรัน test ทันที
 
+## 8.Support Makefile and Taskfile
+
+- รองรับการอ่านคำสั่งจาก Makefile และ Taskfile (go-task)
+- รองรับการสั่งรันคำสั่งจาก Makefile และ Taskfile (go-task)
+
 ## สรุปลำดับความสำคัญ (Priority)
 
 1. **Config & CI Integration** (สำคัญสุดเพื่อให้ทีมนำไปใช้ใน workflow จริงได้)
