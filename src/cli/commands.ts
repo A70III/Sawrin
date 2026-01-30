@@ -29,7 +29,8 @@ export function createProgram(): Command {
     .option("--staged", "Analyze staged changes only")
     .option("-i, --interactive", "Interactive mode to select and run tests")
     .option("--no-cache", "Disable caching")
-    .option("--clear-cache", "Clear the dependency graph cache");
+    .option("--clear-cache", "Clear the dependency graph cache")
+    .option("--init", "Generate a default configuration file");
 
   return program;
 }
@@ -52,6 +53,7 @@ export function parseArgs(argv: string[] = process.argv): CliOptions {
     interactive: opts.interactive || false,
     noCache: !opts.cache, // commander handles --no-cache as cache: false
     clearCache: opts.clearCache || false,
+    init: opts.init || false,
   };
 }
 

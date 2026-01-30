@@ -33,6 +33,7 @@ npx sawrin
 | `npx sawrin --base main`   | Compare current branch vs `main`        |
 | `npx sawrin --json`        | Output JSON for CI/CD pipelines         |
 | `npx sawrin --bruno ./api` | Analyze Bruno API tests                 |
+| `npx sawrin --init`        | Generate default config file            |
 
 ## ⚙️ Configuration
 

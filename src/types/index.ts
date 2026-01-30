@@ -102,6 +102,7 @@ export interface CliOptions {
   interactive?: boolean;
   noCache?: boolean;
   clearCache?: boolean;
+  init?: boolean;
 }
 
 /**

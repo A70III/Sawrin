@@ -45,6 +45,13 @@ async function main(): Promise<void> {
 
     const projectRoot = getGitRoot();
 
+    // Handle init command
+    if (options.init) {
+      const { generateConfigFile } = await import("./core/config-generator.js");
+      await generateConfigFile(projectRoot);
+      process.exit(0);
+    }
+
     // Get diff
     let changedFiles: ChangedFile[];
 
