@@ -1,0 +1,232 @@
+// ============================================
+// Sawrin - Dependency Graph Builder
+// ============================================
+// Builds an import/export graph from TypeScript/JavaScript files
+
+import { readFileSync, existsSync } from "fs";
+import { resolve, dirname, relative } from "path";
+import { glob } from "glob";
+import type { DependencyGraph } from "../types/index.js";
+
+/**
+ * Build the dependency graph for a project
+ */
+export async function buildDependencyGraph(
+  rootPath: string,
+): Promise<DependencyGraph> {
+  const graph: DependencyGraph = {
+    imports: new Map(),
+    importedBy: new Map(),
+    exports: new Map(),
+  };
+
+  // Find all TypeScript/JavaScript files
+  const files = await glob("**/*.{ts,tsx,js,jsx}", {
+    cwd: rootPath,
+    ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.d.ts"],
+    absolute: false,
+  });
+
+  // Build imports for each file
+  for (const file of files) {
+    const absolutePath = resolve(rootPath, file);
+    const imports = extractImports(absolutePath, rootPath);
+
+    graph.imports.set(file, imports);
+
+    // Build reverse mapping (importedBy)
+    for (const importedFile of imports) {
+      if (!graph.importedBy.has(importedFile)) {
+        graph.importedBy.set(importedFile, new Set());
+      }
+      graph.importedBy.get(importedFile)!.add(file);
+    }
+
+    // Extract exports
+    const exports = extractExports(absolutePath);
+    graph.exports.set(file, exports);
+  }
+
+  return graph;
+}
+
+/**
+ * Extract imports from a file
+ */
+export function extractImports(
+  filePath: string,
+  rootPath: string,
+): Set<string> {
+  const imports = new Set<string>();
+
+  if (!existsSync(filePath)) {
+    return imports;
+  }
+
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    const fileDir = dirname(filePath);
+
+    // Match various import patterns
+    const importPatterns = [
+      // ES6 imports: import x from './path'
+      /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'"]+)['"]/g,
+      // Dynamic imports: import('./path')
+      /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+      // Require: require('./path')
+      /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+      // Export from: export { x } from './path'
+      /export\s+(?:[\w*{}\s,]+\s+)?from\s+['"]([^'"]+)['"]/g,
+    ];
+
+    for (const pattern of importPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const importPath = match[1];
+        const resolved = resolveImportPath(importPath, fileDir, rootPath);
+        if (resolved) {
+          imports.add(resolved);
+        }
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+
+  return imports;
+}
+
+/**
+ * Resolve an import path to a relative file path
+ */
+export function resolveImportPath(
+  importPath: string,
+  fromDir: string,
+  rootPath: string,
+): string | null {
+  // Skip external packages
+  if (!importPath.startsWith(".") && !importPath.startsWith("/")) {
+    // Could be an alias like @/utils - skip for now
+    if (!importPath.startsWith("@/") && !importPath.startsWith("~/")) {
+      return null;
+    }
+    // Handle common aliases
+    importPath = importPath.replace(/^[@~]\//, "./src/");
+  }
+
+  // Resolve relative path
+  const absolutePath = resolve(fromDir, importPath);
+
+  // Try various extensions
+  const extensions = [
+    "",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    "/index.ts",
+    "/index.tsx",
+    "/index.js",
+  ];
+
+  for (const ext of extensions) {
+    const fullPath = absolutePath + ext;
+    if (existsSync(fullPath)) {
+      return relative(rootPath, fullPath).replace(/\\/g, "/");
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract exports from a file (for future use)
+ */
+export function extractExports(filePath: string): Set<string> {
+  const exports = new Set<string>();
+
+  if (!existsSync(filePath)) {
+    return exports;
+  }
+
+  try {
+    const content = readFileSync(filePath, "utf-8");
+
+    // Match export patterns
+    const exportPatterns = [
+      // Named exports: export const x, export function x, export class x
+      /export\s+(?:const|let|var|function|class|interface|type|enum)\s+(\w+)/g,
+      // Export list: export { x, y }
+      /export\s*\{([^}]+)\}/g,
+      // Default export
+      /export\s+default/g,
+    ];
+
+    for (const pattern of exportPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1]) {
+          // For export { x, y }, split and add each
+          const names = match[1].split(",").map((n) =>
+            n
+              .trim()
+              .split(/\s+as\s+/)[0]
+              .trim(),
+          );
+          names.forEach((name) => {
+            if (name && !name.includes("{")) {
+              exports.add(name);
+            }
+          });
+        }
+      }
+    }
+
+    // Check for default export
+    if (/export\s+default/.test(content)) {
+      exports.add("default");
+    }
+  } catch {
+    // Ignore read errors
+  }
+
+  return exports;
+}
+
+/**
+ * Get all files that are affected by changes to the given files
+ * (transitive closure of importedBy relationship)
+ */
+export function getAffectedFiles(
+  changedFiles: string[],
+  graph: DependencyGraph,
+  maxDepth: number = 10,
+): Map<string, number> {
+  const affected = new Map<string, number>(); // file -> depth
+  const queue: Array<{ file: string; depth: number }> = [];
+
+  // Initialize with changed files at depth 0
+  for (const file of changedFiles) {
+    affected.set(file, 0);
+    queue.push({ file, depth: 0 });
+  }
+
+  // BFS to find all affected files
+  while (queue.length > 0) {
+    const { file, depth } = queue.shift()!;
+
+    if (depth >= maxDepth) continue;
+
+    const importers = graph.importedBy.get(file);
+    if (importers) {
+      for (const importer of importers) {
+        if (!affected.has(importer) || affected.get(importer)! > depth + 1) {
+          affected.set(importer, depth + 1);
+          queue.push({ file: importer, depth: depth + 1 });
+        }
+      }
+    }
+  }
+
+  return affected;
+}

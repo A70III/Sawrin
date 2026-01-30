@@ -1,0 +1,41 @@
+{
+  "name": "sawrin",
+  "version": "0.1.0",
+  "description": "Heuristic-based diff impact analyzer for TypeScript/Node.js projects",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sawrin": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "diff",
+    "impact",
+    "testing",
+    "analysis",
+    "heuristics",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "glob": "^10.3.10"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
