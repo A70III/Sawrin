@@ -209,3 +209,44 @@ export interface SawrinConfig {
   /** Maximum depth for dependency traversal */
   maxDepth?: number;
 }
+
+// ============================================
+// Task Runner Types (Makefile / Taskfile)
+// ============================================
+
+/**
+ * Source of a task definition
+ */
+export type TaskSource = "makefile" | "taskfile";
+
+/**
+ * A task/target from Makefile or Taskfile
+ */
+export interface TaskDefinition {
+  /** Task/target name */
+  name: string;
+  /** Source file type */
+  source: TaskSource;
+  /** Path to the source file */
+  sourcePath: string;
+  /** Description/comment if available */
+  description?: string;
+  /** Dependencies (other tasks this depends on) */
+  dependencies?: string[];
+  /** The command(s) to run */
+  commands?: string[];
+}
+
+/**
+ * Result of task detection
+ */
+export interface TaskDetectionResult {
+  /** Whether any task files were found */
+  found: boolean;
+  /** Path to Makefile if found */
+  makefilePath?: string;
+  /** Path to Taskfile if found */
+  taskfilePath?: string;
+  /** All detected tasks */
+  tasks: TaskDefinition[];
+}
