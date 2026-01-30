@@ -43,10 +43,19 @@ export function printReport(
       console.log(`  ${chalk.yellow("•")} ${test.path}`);
       if (verbose) {
         for (const reason of test.reasons) {
-          console.log(`    ${chalk.gray("→")} ${reason.description}`);
+          const location = reason.lineNumber ? `:${reason.lineNumber}` : "";
+          const source = reason.relatedFile
+            ? ` (from ${reason.relatedFile}${location})`
+            : "";
+          console.log(`    ${chalk.gray("→")} ${reason.description}${source}`);
         }
       } else if (test.reasons.length > 0) {
-        console.log(`    ${chalk.gray("→")} ${test.reasons[0].description}`);
+        const reason = test.reasons[0];
+        const location = reason.lineNumber ? `:${reason.lineNumber}` : "";
+        const source = reason.relatedFile
+          ? ` (from ${reason.relatedFile}${location})`
+          : "";
+        console.log(`    ${chalk.gray("→")} ${reason.description}${source}`);
       }
     }
   } else {
@@ -66,10 +75,19 @@ export function printReport(
       console.log(`  ${chalk.magenta("•")} ${test.path}`);
       if (verbose) {
         for (const reason of test.reasons) {
-          console.log(`    ${chalk.gray("→")} ${reason.description}`);
+          const location = reason.lineNumber ? `:${reason.lineNumber}` : "";
+          const source = reason.relatedFile
+            ? ` (from ${reason.relatedFile}${location})`
+            : "";
+          console.log(`    ${chalk.gray("→")} ${reason.description}${source}`);
         }
       } else if (test.reasons.length > 0) {
-        console.log(`    ${chalk.gray("→")} ${test.reasons[0].description}`);
+        const reason = test.reasons[0];
+        const location = reason.lineNumber ? `:${reason.lineNumber}` : "";
+        const source = reason.relatedFile
+          ? ` (from ${reason.relatedFile}${location})`
+          : "";
+        console.log(`    ${chalk.gray("→")} ${reason.description}${source}`);
       }
     }
   } else {
@@ -172,6 +190,7 @@ function simplifyImpacted(file: ImpactedFile): object {
       type: r.type,
       description: r.description,
       relatedFile: r.relatedFile,
+      lineNumber: r.lineNumber,
     })),
   };
 }

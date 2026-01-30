@@ -4,7 +4,7 @@
 // Detects impacted Bruno API tests
 
 import { readFileSync, existsSync } from "fs";
-import { dirname, resolve } from "path";
+import { dirname, resolve, relative } from "path";
 import { glob } from "glob";
 import type {
   ImpactedFile,
@@ -36,7 +36,7 @@ export const apiTestAnalyzer: Analyzer<ImpactedFile[]> = {
     }
 
     // Parse Bruno test files
-    const brunoTests = await parseBrunoCollection(brunoPath);
+    const brunoTests = await parseBrunoCollection(brunoPath, projectRoot);
     if (brunoTests.length === 0) {
       return [];
     }
@@ -59,6 +59,7 @@ export const apiTestAnalyzer: Analyzer<ImpactedFile[]> = {
             type: "route_match",
             description: `Route ${route.method} ${route.path} matches test URL`,
             relatedFile: route.sourceFile,
+            lineNumber: route.lineNumber,
           });
         }
       }
@@ -95,6 +96,7 @@ export const apiTestAnalyzer: Analyzer<ImpactedFile[]> = {
             type: "route_match",
             description: `Route ${route.path} similar to test URL (${Math.round(similarity * 100)}% match)`,
             relatedFile: route.sourceFile,
+            lineNumber: route.lineNumber,
           });
         }
       }
@@ -153,6 +155,7 @@ async function findBrunoPath(projectRoot: string): Promise<string | null> {
  */
 async function parseBrunoCollection(
   brunoPath: string,
+  projectRoot: string,
 ): Promise<BrunoTestFile[]> {
   const tests: BrunoTestFile[] = [];
 
@@ -161,9 +164,10 @@ async function parseBrunoCollection(
   for (const file of bruFiles) {
     const fullPath = resolve(brunoPath, file);
     const parsed = parseBruFile(fullPath);
+    const relativePath = relative(projectRoot, fullPath).replace(/\\/g, "/");
 
     tests.push({
-      path: file,
+      path: relativePath,
       method: parsed.method,
       url: parsed.url,
       tags: parsed.tags,

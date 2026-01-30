@@ -45,6 +45,7 @@ export interface ImpactReason {
     | "tag_match"; // Bruno tag matches
   description: string;
   relatedFile?: string; // The file that caused this impact
+  lineNumber?: number; // Line number where impact occurred/detected
 }
 
 /**
