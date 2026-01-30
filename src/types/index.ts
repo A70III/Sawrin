@@ -99,6 +99,7 @@ export interface CliOptions {
   brunoPath?: string;
   verbose?: boolean;
   json?: boolean;
+  interactive?: boolean;
 }
 
 /**

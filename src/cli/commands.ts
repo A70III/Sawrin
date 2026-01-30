@@ -17,9 +17,7 @@ export function createProgram(): Command {
     .description(
       "Heuristic-based diff impact analyzer for TypeScript/Node.js projects",
     )
-    .version("0.1.0");
-
-  program
+    .version("0.1.0")
     .option(
       "-b, --base <ref>",
       "Base commit/branch to compare from (e.g., main, HEAD~1)",
@@ -28,7 +26,8 @@ export function createProgram(): Command {
     .option("--bruno <path>", "Path to Bruno collection directory")
     .option("-v, --verbose", "Show detailed output with all reasons")
     .option("--json", "Output results as JSON")
-    .option("--staged", "Analyze staged changes only");
+    .option("--staged", "Analyze staged changes only")
+    .option("-i, --interactive", "Interactive mode to select and run tests");
 
   return program;
 }
@@ -48,6 +47,7 @@ export function parseArgs(argv: string[] = process.argv): CliOptions {
     brunoPath: opts.bruno,
     verbose: opts.verbose || false,
     json: opts.json || false,
+    interactive: opts.interactive || false,
   };
 }
 

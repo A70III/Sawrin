@@ -129,6 +129,10 @@ async function main(): Promise<void> {
     // Output result
     if (options.json) {
       printJsonReport(result);
+    } else if (options.interactive) {
+      // Lazy load interactive module
+      const { interactiveTestSelection } = await import("./cli/interactive.js");
+      await interactiveTestSelection(impactedUnitTests, impactedApiTests);
     } else {
       printReport(result, options.verbose);
     }
