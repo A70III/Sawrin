@@ -40,6 +40,7 @@ const WEIGHTS = {
   manyFilesChanged: 1,
   manyTestsImpacted: 1,
   coreFile: 3,
+  crossPackageChange: 4, // Monorepo: changes affect other packages
 };
 
 /**

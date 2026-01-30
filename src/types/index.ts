@@ -121,3 +121,53 @@ export interface BrunoTestFile {
   tags?: string[];
   folder: string;
 }
+
+// ============================================
+// Monorepo Types
+// ============================================
+
+/**
+ * Represents a workspace/package in a monorepo
+ */
+export interface Workspace {
+  /** Package name from package.json (e.g., @app/utils) */
+  name: string;
+  /** Absolute path to the package directory */
+  path: string;
+  /** Relative path from monorepo root */
+  relativePath: string;
+  /** Dependencies on other internal packages */
+  internalDependencies: string[];
+  /** Packages that depend on this one */
+  dependedBy: string[];
+}
+
+/**
+ * Information about a package.json
+ */
+export interface PackageInfo {
+  name: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  main?: string;
+  module?: string;
+  exports?: Record<string, string>;
+  workspaces?: string[] | { packages: string[] };
+}
+
+/**
+ * Monorepo configuration and structure
+ */
+export interface MonorepoInfo {
+  /** Whether this is a monorepo */
+  isMonorepo: boolean;
+  /** Root path of the monorepo */
+  rootPath: string;
+  /** Type of monorepo (npm, pnpm, lerna, nx, turbo) */
+  type: "npm" | "pnpm" | "lerna" | "nx" | "turbo" | "unknown";
+  /** All workspaces/packages */
+  workspaces: Workspace[];
+  /** Map of package name -> Workspace */
+  packageMap: Map<string, Workspace>;
+}

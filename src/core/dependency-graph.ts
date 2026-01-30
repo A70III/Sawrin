@@ -6,7 +6,8 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, relative } from "path";
 import { glob } from "glob";
-import type { DependencyGraph } from "../types/index.js";
+import type { DependencyGraph, MonorepoInfo } from "../types/index.js";
+import { resolvePackageImport } from "./monorepo.js";
 
 /**
  * Build the dependency graph for a project
@@ -31,6 +32,53 @@ export async function buildDependencyGraph(
   for (const file of files) {
     const absolutePath = resolve(rootPath, file);
     const imports = extractImports(absolutePath, rootPath);
+
+    graph.imports.set(file, imports);
+
+    // Build reverse mapping (importedBy)
+    for (const importedFile of imports) {
+      if (!graph.importedBy.has(importedFile)) {
+        graph.importedBy.set(importedFile, new Set());
+      }
+      graph.importedBy.get(importedFile)!.add(file);
+    }
+
+    // Extract exports
+    const exports = extractExports(absolutePath);
+    graph.exports.set(file, exports);
+  }
+
+  return graph;
+}
+
+/**
+ * Build the dependency graph with monorepo support
+ */
+export async function buildDependencyGraphWithMonorepo(
+  rootPath: string,
+  monorepo: MonorepoInfo | null,
+): Promise<DependencyGraph> {
+  const graph: DependencyGraph = {
+    imports: new Map(),
+    importedBy: new Map(),
+    exports: new Map(),
+  };
+
+  // Find all TypeScript/JavaScript files
+  const files = await glob("**/*.{ts,tsx,js,jsx}", {
+    cwd: rootPath,
+    ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.d.ts"],
+    absolute: false,
+  });
+
+  // Build imports for each file
+  for (const file of files) {
+    const absolutePath = resolve(rootPath, file);
+    const imports = extractImportsWithMonorepo(
+      absolutePath,
+      rootPath,
+      monorepo,
+    );
 
     graph.imports.set(file, imports);
 
@@ -97,6 +145,54 @@ export function extractImports(
 }
 
 /**
+ * Extract imports from a file with monorepo support
+ */
+export function extractImportsWithMonorepo(
+  filePath: string,
+  rootPath: string,
+  monorepo: MonorepoInfo | null,
+): Set<string> {
+  const imports = new Set<string>();
+
+  if (!existsSync(filePath)) {
+    return imports;
+  }
+
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    const fileDir = dirname(filePath);
+
+    // Match various import patterns
+    const importPatterns = [
+      /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'"]+)['"]/g,
+      /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+      /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+      /export\s+(?:[\w*{}\s,]+\s+)?from\s+['"]([^'"]+)['"]/g,
+    ];
+
+    for (const pattern of importPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const importPath = match[1];
+        const resolved = resolveImportPathWithMonorepo(
+          importPath,
+          fileDir,
+          rootPath,
+          monorepo,
+        );
+        if (resolved) {
+          imports.add(resolved);
+        }
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+
+  return imports;
+}
+
+/**
  * Resolve an import path to a relative file path
  */
 export function resolveImportPath(
@@ -137,6 +233,50 @@ export function resolveImportPath(
   }
 
   return null;
+}
+
+/**
+ * Resolve an import path with monorepo support
+ */
+export function resolveImportPathWithMonorepo(
+  importPath: string,
+  fromDir: string,
+  rootPath: string,
+  monorepo: MonorepoInfo | null,
+): string | null {
+  // First, try to resolve as a monorepo package
+  if (
+    monorepo?.isMonorepo &&
+    !importPath.startsWith(".") &&
+    !importPath.startsWith("/")
+  ) {
+    // Check if it's an internal package
+    const packageName = getPackageNameFromImport(importPath);
+    if (monorepo.packageMap.has(packageName)) {
+      const resolved = resolvePackageImport(packageName, monorepo);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  // Fall back to normal resolution
+  return resolveImportPath(importPath, fromDir, rootPath);
+}
+
+/**
+ * Extract package name from import path (e.g., @app/utils/foo -> @app/utils)
+ */
+function getPackageNameFromImport(importPath: string): string {
+  if (importPath.startsWith("@")) {
+    // Scoped package: @scope/name or @scope/name/subpath
+    const parts = importPath.split("/");
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+  }
+  // Unscoped package: name or name/subpath
+  return importPath.split("/")[0];
 }
 
 /**
