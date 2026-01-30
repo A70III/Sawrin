@@ -75,8 +75,18 @@ async function main(): Promise<void> {
       ignore: ["**/node_modules/**", "**/dist/**", "**/build/**"],
     });
 
+    // Clear cache if requested
+    if (options.clearCache) {
+      const { CacheManager } = await import("./core/cache.js");
+      new CacheManager(projectRoot).clear();
+      console.log("🧹 Cache cleared");
+    }
+
     // Build dependency graph
-    const dependencyGraph = await buildDependencyGraph(projectRoot);
+    const dependencyGraph = await buildDependencyGraph(
+      projectRoot,
+      options.noCache,
+    );
 
     // Create analyzer context
     const context = {

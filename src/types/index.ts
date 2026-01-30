@@ -100,6 +100,8 @@ export interface CliOptions {
   verbose?: boolean;
   json?: boolean;
   interactive?: boolean;
+  noCache?: boolean;
+  clearCache?: boolean;
 }
 
 /**

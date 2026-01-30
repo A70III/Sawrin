@@ -27,7 +27,9 @@ export function createProgram(): Command {
     .option("-v, --verbose", "Show detailed output with all reasons")
     .option("--json", "Output results as JSON")
     .option("--staged", "Analyze staged changes only")
-    .option("-i, --interactive", "Interactive mode to select and run tests");
+    .option("-i, --interactive", "Interactive mode to select and run tests")
+    .option("--no-cache", "Disable caching")
+    .option("--clear-cache", "Clear the dependency graph cache");
 
   return program;
 }
@@ -48,6 +50,8 @@ export function parseArgs(argv: string[] = process.argv): CliOptions {
     verbose: opts.verbose || false,
     json: opts.json || false,
     interactive: opts.interactive || false,
+    noCache: !opts.cache, // commander handles --no-cache as cache: false
+    clearCache: opts.clearCache || false,
   };
 }
 
