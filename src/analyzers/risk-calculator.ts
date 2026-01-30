@@ -56,7 +56,7 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
     let score = 0;
 
     // Filter out test files for risk calculation
-    const sourceFiles = changedFiles.filter((f) => !isTestFile(f.path));
+    const sourceFiles = changedFiles.filter((f) => !isTestFile(f.path, config));
 
     if (sourceFiles.length === 0) {
       return {

@@ -6,6 +6,7 @@
 import { writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { DEFAULT_CONFIG } from "./config.js";
+import { logger } from "../shared/logger.js";
 
 /**
  * Generate a default configuration file in the project root
@@ -15,7 +16,7 @@ export async function generateConfigFile(rootPath: string): Promise<boolean> {
 
   // Check if config already exists
   if (existsSync(configPath)) {
-    console.warn("⚠️  Configuration file .sawrinrc.json already exists.");
+    logger.warn("Configuration file .sawrinrc.json already exists.");
     return false;
   }
 
@@ -24,7 +25,7 @@ export async function generateConfigFile(rootPath: string): Promise<boolean> {
 
   for (const file of otherConfigs) {
     if (existsSync(resolve(rootPath, file))) {
-      console.warn(`⚠️  Configuration file ${file} already exists.`);
+      logger.warn(`Configuration file ${file} already exists.`);
       return false;
     }
   }
@@ -34,10 +35,10 @@ export async function generateConfigFile(rootPath: string): Promise<boolean> {
     const content = JSON.stringify(DEFAULT_CONFIG, null, 2);
     writeFileSync(configPath, content, "utf-8");
 
-    console.log("✅ Created .sawrinrc.json with default configuration.");
+    logger.info("Created .sawrinrc.json with default configuration.");
     return true;
   } catch (error) {
-    console.error("❌ Failed to create configuration file:", error);
+    logger.error("Failed to create configuration file:", error);
     return false;
   }
 }

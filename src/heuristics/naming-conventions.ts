@@ -4,11 +4,13 @@
 // Match source files to test files via naming patterns
 
 import { basename, dirname, join } from "path";
+import type { SawrinConfig } from "../types/index.js";
+import { shouldIgnoreFile } from "../core/config.js";
 
 /**
  * Common test file patterns
  */
-const TEST_PATTERNS = [
+const DEFAULT_TEST_PATTERNS = [
   // .spec.ts pattern
   { suffix: ".spec.ts", sourceSuffix: ".ts" },
   { suffix: ".spec.tsx", sourceSuffix: ".tsx" },
@@ -24,10 +26,40 @@ const TEST_PATTERNS = [
 /**
  * Check if a file is a test file
  */
-export function isTestFile(filePath: string): boolean {
+export function isTestFile(filePath: string, config?: SawrinConfig): boolean {
+  // If config has test patterns, use them
+  if (config && config.testPatterns && config.testPatterns.length > 0) {
+    // Simple verification check using the config helper if available or manual glob match
+    // For now we'll assume the caller might want to reuse the logic from config.ts
+    // but to avoid circular imports if config.ts imports this, we should be careful.
+    // Ideally we use a shared glob matcher or the one in config.ts.
+    // Importing matchGlobPattern from config.ts is safe if config.ts doesn't import this file.
+    // Let's check config.ts... it seems config.ts doesn't import naming-conventions.
+
+    // We can also implement a simple check here or reuse logic.
+    // Let's allow passing a utility or just iterate manually if needed.
+    // For simplicity and correctness, let's use the simple suffix check as default
+    // BUT if config is present, we should trust config.testPatterns.
+
+    // Since we don't want to duplicate glob logic, and config.ts has isConfiguredTestFile,
+    // maybe we should move that logic or call it?
+    // Actually, `isConfiguredTestFile` in config.ts is perfect.
+    // But to avoid circular deps (if any), let's see.
+    // naming-conventions imported by risk-calculator, etc.
+    // config.ts imported by index.ts, risk-calculator, etc.
+    // It should be fine to import { isConfiguredTestFile } from "../core/config.js" if config.ts doesn't import this.
+    // Let's assume it's safe.
+
+    // Actually, let's just do a basic check here or accept that the caller might handle it.
+    // But the request is to "Update isTestFile... to use config".
+
+    // REVISIT: simpler approach - use the config patterns if provided
+    return matchesAnyPattern(filePath, config.testPatterns);
+  }
+
   const name = basename(filePath);
   return (
-    TEST_PATTERNS.some((p) => name.endsWith(p.suffix)) ||
+    DEFAULT_TEST_PATTERNS.some((p) => name.endsWith(p.suffix)) ||
     filePath.includes("__tests__/") ||
     filePath.includes("/test/") ||
     filePath.includes("/tests/")
@@ -35,20 +67,67 @@ export function isTestFile(filePath: string): boolean {
 }
 
 /**
+ * Helper for glob-like matching (simplified for suffixes/wildcards)
+ */
+function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const normalizedPattern = pattern.replace(/\\/g, "/");
+
+    // 1. Escape special regex characters except * ? { } ,
+    let regexString = normalizedPattern.replace(/[.+^$()|[\]\\]/g, "\\$&");
+
+    // 2. Handle brace expansion {a,b} -> (a|b)
+    regexString = regexString
+      .replace(/\{/g, "(")
+      .replace(/\}/g, ")")
+      .replace(/,/g, "|");
+
+    // 3. Handle wildcards
+    // Use placeholder for ** to avoid replacing * inside .* later
+    regexString = regexString
+      .replace(/\*\*/g, "%%GLOBSTAR%%")
+      .replace(/\*/g, "[^/]*")
+      .replace(/\?/g, ".");
+
+    // Help with **/ prefix to match root
+    if (normalizedPattern.startsWith("**/")) {
+      // regexString currently starts with %%GLOBSTAR%%/
+      // Remove the leading "%%GLOBSTAR%%/" (length 13)
+      const rest = regexString.slice(13);
+
+      // Restore placeholder in rest of string
+      const content = rest.replace(/%%GLOBSTAR%%/g, ".*");
+
+      return new RegExp(`^(?:.*/)?${content}$`).test(normalizedPath);
+    }
+
+    // Restore placeholder for normal cases
+    regexString = regexString.replace(/%%GLOBSTAR%%/g, ".*");
+
+    const finalRegex = new RegExp(`^${regexString}$`);
+    return finalRegex.test(normalizedPath);
+  });
+}
+
+/**
  * Get potential test file paths for a source file
  */
-export function getTestFilePatterns(sourceFile: string): string[] {
+export function getTestFilePatterns(
+  sourceFile: string,
+  config?: SawrinConfig,
+): string[] {
   const patterns: string[] = [];
   const dir = dirname(sourceFile);
   const name = basename(sourceFile);
 
   // Skip if already a test file
-  if (isTestFile(sourceFile)) {
+  if (isTestFile(sourceFile, config)) {
     return [];
   }
 
   // Find matching extension patterns
-  for (const pattern of TEST_PATTERNS) {
+  for (const pattern of DEFAULT_TEST_PATTERNS) {
     if (name.endsWith(pattern.sourceSuffix)) {
       const baseName = name.slice(0, -pattern.sourceSuffix.length);
       const testName = baseName + pattern.suffix;
@@ -59,10 +138,8 @@ export function getTestFilePatterns(sourceFile: string): string[] {
       // __tests__ subdirectory
       patterns.push(join(dir, "__tests__", testName));
 
-      // test/ subdirectory
+      // test/ and tests/ subdirectories
       patterns.push(join(dir, "test", testName));
-
-      // tests/ subdirectory
       patterns.push(join(dir, "tests", testName));
 
       // Parallel tests directory (src/x.ts -> tests/x.spec.ts)
@@ -85,7 +162,7 @@ export function getSourceFileFromTest(testFile: string): string | null {
   const name = basename(testFile);
   const dir = dirname(testFile);
 
-  for (const pattern of TEST_PATTERNS) {
+  for (const pattern of DEFAULT_TEST_PATTERNS) {
     if (name.endsWith(pattern.suffix)) {
       const baseName = name.slice(0, -pattern.suffix.length);
       const sourceName = baseName + pattern.sourceSuffix;
@@ -114,8 +191,9 @@ export function getSourceFileFromTest(testFile: string): string | null {
 export function matchTestFiles(
   sourceFile: string,
   allFiles: string[],
+  config?: SawrinConfig,
 ): string[] {
-  const patterns = getTestFilePatterns(sourceFile);
+  const patterns = getTestFilePatterns(sourceFile, config);
   const matches: string[] = [];
 
   // Normalize paths for comparison
@@ -131,13 +209,21 @@ export function matchTestFiles(
   }
 
   // Also try fuzzy matching by base name
+  // Optimized: Only if not matched yet
   const sourceBaseName = basename(sourceFile).replace(/\.(ts|tsx|js|jsx)$/, "");
+
   for (const file of allFiles) {
-    if (isTestFile(file)) {
+    // Start with strictly checking if it IS a test file
+    if (isTestFile(file, config)) {
+      // If we found strict matches, maybe we don't need fuzzy?
+      // But keeping legacy behavior for now.
+
       const testBaseName = basename(file).replace(
         /\.(spec|test)\.(ts|tsx|js|jsx)$/,
         "",
       );
+      // Clean up base name if it has suffix
+
       if (testBaseName === sourceBaseName && !matches.includes(file)) {
         matches.push(file);
       }

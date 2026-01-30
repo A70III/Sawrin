@@ -3,7 +3,7 @@
 // ============================================
 // Detect and analyze monorepo structures (npm workspaces, pnpm, lerna, nx, turbo)
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, statSync } from "fs";
 import { resolve, relative, dirname, join } from "path";
 import { glob } from "glob";
 import type { MonorepoInfo, Workspace, PackageInfo } from "../types/index.js";
@@ -214,10 +214,14 @@ export function getAffectedPackages(
 /**
  * Resolve a package import to its entry file
  */
+/**
+ * Resolve a package import (including subpaths) to a file path
+ */
 export function resolvePackageImport(
-  packageName: string,
+  importPath: string,
   monorepo: MonorepoInfo,
 ): string | null {
+  const packageName = getPackageNameFromImport(importPath);
   const ws = monorepo.packageMap.get(packageName);
   if (!ws) return null;
 
@@ -225,25 +229,148 @@ export function resolvePackageImport(
   const packageJson = readPackageJson(packageJsonPath);
   if (!packageJson) return null;
 
-  // Try various entry points
-  const entryPoints = [
-    packageJson.main,
-    packageJson.module,
-    "src/index.ts",
-    "src/index.js",
-    "index.ts",
-    "index.js",
-  ];
+  // Determine subpath (e.g., @app/ui/button -> ./button)
+  let subpath = ".";
+  if (importPath.length > packageName.length) {
+    const rawSubpath = importPath.slice(packageName.length);
+    // Ensure it starts with ./
+    subpath = rawSubpath.startsWith("/") ? `.${rawSubpath}` : `./${rawSubpath}`;
+  }
 
-  for (const entry of entryPoints) {
-    if (!entry) continue;
-    const entryPath = resolve(ws.path, entry);
-    if (existsSync(entryPath)) {
-      return relative(monorepo.rootPath, entryPath).replace(/\\/g, "/");
+  // 1. Check "exports" field (modern Node.js)
+  if (packageJson.exports) {
+    const resolved = resolveExports(packageJson.exports, subpath);
+    if (resolved) {
+      const absPath = resolve(ws.path, resolved);
+      if (existsSync(absPath)) {
+        return relative(monorepo.rootPath, absPath).replace(/\\/g, "/");
+      }
+      // Try with extensions if direct match failed
+      const withExt = resolveWithExtensions(absPath);
+      if (withExt) {
+        return relative(monorepo.rootPath, withExt).replace(/\\/g, "/");
+      }
+    }
+  }
+
+  // 2. Legacy resolution (main/module or direct file mapping)
+  if (subpath === ".") {
+    // Main entry point
+    const entryPoints = [
+      packageJson.main,
+      packageJson.module,
+      "src/index.ts",
+      "src/index.js",
+      "index.ts",
+      "index.js",
+    ];
+
+    for (const entry of entryPoints) {
+      if (!entry) continue;
+      const entryPath = resolve(ws.path, entry);
+      const resolved = resolveWithExtensions(entryPath);
+      if (resolved) {
+        return relative(monorepo.rootPath, resolved).replace(/\\/g, "/");
+      }
+    }
+  } else {
+    // Direct file access: @app/ui/button -> packages/ui/button.ts
+    // subpath is like ./button
+    const relativeFile = subpath.slice(2); // remove ./
+    const absPath = resolve(ws.path, relativeFile);
+    const resolved = resolveWithExtensions(absPath);
+    if (resolved) {
+      return relative(monorepo.rootPath, resolved).replace(/\\/g, "/");
+    }
+
+    // Also try src/ prefix which is common in TS repos
+    // @app/ui/button -> packages/ui/src/button.ts
+    const srcPath = resolve(ws.path, "src", relativeFile);
+    const resolvedSrc = resolveWithExtensions(srcPath);
+    if (resolvedSrc) {
+      return relative(monorepo.rootPath, resolvedSrc).replace(/\\/g, "/");
     }
   }
 
   return null;
+}
+
+/**
+ * Helper to resolve exports field
+ */
+function resolveExports(exports: any, subpath: string): string | null {
+  if (typeof exports === "string") {
+    return subpath === "." ? exports : null;
+  }
+
+  if (typeof exports === "object") {
+    // Exact match
+    if (exports[subpath]) {
+      return exports[subpath];
+    }
+
+    // Directory match (e.g. "./*": "./dist/*.js")
+    // Simple implementation for now
+    for (const key of Object.keys(exports)) {
+      if (key.includes("*")) {
+        const prefix = key.split("*")[0];
+        if (subpath.startsWith(prefix)) {
+          // Replace * in target
+          const suffix = subpath.slice(prefix.length);
+          const target = exports[key];
+          return target.replace("*", suffix);
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper to resolve file with extensions
+ */
+function resolveWithExtensions(filePath: string): string | null {
+  if (existsSync(filePath) && !filePath.endsWith("/")) {
+    // naive file check
+    // Check if it's a directory, if so look for index
+    try {
+      const stats = statSync(filePath);
+      if (stats.isDirectory()) {
+        const indexTs = join(filePath, "index.ts");
+        if (existsSync(indexTs)) return indexTs;
+        const indexJs = join(filePath, "index.js");
+        if (existsSync(indexJs)) return indexJs;
+      }
+    } catch {}
+    return filePath;
+  }
+
+  const extensions = [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    "/index.ts",
+    "/index.tsx",
+    "/index.js",
+  ];
+  for (const ext of extensions) {
+    const p = filePath + ext;
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * Extract package name from import path
+ */
+function getPackageNameFromImport(importPath: string): string {
+  if (importPath.startsWith("@")) {
+    const parts = importPath.split("/");
+    if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+  }
+  return importPath.split("/")[0];
 }
 
 // ============================================

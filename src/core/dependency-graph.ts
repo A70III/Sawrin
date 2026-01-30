@@ -9,6 +9,7 @@ import { glob } from "glob";
 import type { DependencyGraph, MonorepoInfo } from "../types/index.js";
 import { resolvePackageImport } from "./monorepo.js";
 import { CacheManager } from "./cache.js";
+import { logger } from "../shared/logger.js";
 
 /**
  * Build the dependency graph for a project
@@ -254,13 +255,10 @@ export function resolveImportPathWithMonorepo(
     !importPath.startsWith(".") &&
     !importPath.startsWith("/")
   ) {
-    // Check if it's an internal package
-    const packageName = getPackageNameFromImport(importPath);
-    if (monorepo.packageMap.has(packageName)) {
-      const resolved = resolvePackageImport(packageName, monorepo);
-      if (resolved) {
-        return resolved;
-      }
+    // Try to resolve using enhanced monorepo logic (handles exports and subpaths)
+    const resolved = resolvePackageImport(importPath, monorepo);
+    if (resolved) {
+      return resolved;
     }
   }
 
@@ -330,8 +328,8 @@ export function extractExports(filePath: string): Set<string> {
     if (/export\s+default/.test(content)) {
       exports.add("default");
     }
-  } catch {
-    // Ignore read errors
+  } catch (error) {
+    logger.warn(`Failed to process exports for ${filePath}`, error);
   }
 
   return exports;

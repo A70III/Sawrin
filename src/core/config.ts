@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import type { SawrinConfig } from "../types/index.js";
+import { logger } from "../shared/logger.js";
 
 /**
  * Configuration file names to search for (in order of priority)
@@ -88,7 +89,7 @@ async function parseConfigFile(
       return configModule.default || configModule;
     }
   } catch (error) {
-    console.warn(`Warning: Failed to parse config file ${configPath}:`, error);
+    logger.warn(`Warning: Failed to parse config file ${configPath}:`, error);
   }
 
   return {};
@@ -186,30 +187,44 @@ export function isLowRiskFile(filePath: string, config: SawrinConfig): boolean {
 }
 
 /**
- * Simple glob pattern matching (supports * and **)
+ * Simple glob pattern matching (supports * and ** and {a,b})
  */
 function matchGlobPattern(filePath: string, pattern: string): boolean {
   // Normalize path separators
   const normalizedPath = filePath.replace(/\\/g, "/");
   const normalizedPattern = pattern.replace(/\\/g, "/");
 
-  // Check if pattern starts with **/ (matches any leading path)
-  const startsWithGlobstar = normalizedPattern.startsWith("**/");
-  const patternToConvert = startsWithGlobstar
-    ? normalizedPattern.slice(3)
-    : normalizedPattern;
+  // 1. Escape special regex characters except * ? { } ,
+  let regexPattern = normalizedPattern.replace(/[.+^$()|[\]\\]/g, "\\$&");
 
-  // Convert glob to regex (escape first, then convert glob chars)
-  let regexPattern = patternToConvert
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&") // Escape special regex chars
-    .replace(/\*\*/g, "§§") // Placeholder for **
-    .replace(/\*/g, "[^/]*") // * matches anything except /
-    .replace(/§§/g, ".*"); // ** matches anything
+  // 2. Handle brace expansion {a,b} -> (a|b)
+  regexPattern = regexPattern
+    .replace(/\{/g, "(")
+    .replace(/\}/g, ")")
+    .replace(/,/g, "|");
+
+  // 3. Handle wildcards
+  // Use placeholder for ** to avoid replacing * inside .* later
+  regexPattern = regexPattern
+    .replace(/\*\*/g, "%%GLOBSTAR%%")
+    .replace(/\*/g, "[^/]*")
+    .replace(/\?/g, ".");
 
   // If original pattern started with **/, allow optional leading path
-  if (startsWithGlobstar) {
-    regexPattern = "(?:.*/)?" + regexPattern;
+  if (normalizedPattern.startsWith("**/")) {
+    // regexPattern currently starts with %%GLOBSTAR%%/ due to step 3
+    // Remove the leading "%%GLOBSTAR%%/" (length 12 + 1 = 13)
+    const rest = regexPattern.slice(13);
+
+    // Restore placeholder in rest of string
+    const content = rest.replace(/%%GLOBSTAR%%/g, ".*");
+
+    const regex = new RegExp(`^(?:.*/)?${content}$`);
+    return regex.test(normalizedPath);
   }
+
+  // Restore placeholder for normal cases
+  regexPattern = regexPattern.replace(/%%GLOBSTAR%%/g, ".*");
 
   const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(normalizedPath);

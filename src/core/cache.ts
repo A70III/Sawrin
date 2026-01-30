@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { createHash } from "crypto";
+import { logger } from "../shared/logger.js";
 
 /**
  * Cache entry for a single file
@@ -60,7 +61,7 @@ export class CacheManager {
         }
       } catch (error) {
         // Assume corrupted cache, start fresh
-        console.warn("Failed to load cache, starting fresh");
+        logger.warn("Failed to load cache, starting fresh");
         this.data = { version: this.VERSION, entries: {} };
       }
     }
@@ -80,7 +81,7 @@ export class CacheManager {
       writeFileSync(this.cachePath, JSON.stringify(this.data, null, 2));
       this.isDirty = false;
     } catch (error) {
-      console.warn("Failed to save cache:", error);
+      logger.warn("Failed to save cache:", error);
     }
   }
 
