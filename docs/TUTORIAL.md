@@ -119,6 +119,49 @@ Bruno tests matched via:
 - **MEDIUM**: Shared services, auth files
 - **HIGH**: Core utilities, database, multiple modules
 
+## Advanced Features
+
+### Interactive Mode
+
+Select and run tests interactively:
+
+```bash
+npx sawrin --interactive
+```
+
+### Smart Caching
+
+Sawrin caches the dependency graph to speed up subsequent runs.
+
+- **Enable/Disable**: Cache is on by default. Use `--no-cache` to disable.
+- **Clear Cache**: Use `--clear-cache` to reset.
+
+### Monorepo Support
+
+Sawrin automatically detects:
+
+- npm/yarn/pnpm workspaces
+- Nx / Turborepo / Lerna
+- Cross-package dependencies (e.g., changes in `packages/ui` affecting `apps/web`)
+
+### Configuration
+
+Create a `.sawrinrc.json` or `sawrin.config.js` to customize:
+
+```json
+{
+  "ignorePatterns": ["**/legacy/**"],
+  "testPatterns": ["**/*.spec.ts"],
+  "riskWeights": {
+    "authChange": 10
+  }
+}
+```
+
+### Task Runner Integration
+
+Sawrin detects `Makefile` and `Taskfile.yml`. It can suggest and run relevant tasks for impacted areas.
+
 ## Heuristics Reference
 
 | Heuristic         | Rule                                          |
@@ -128,6 +171,7 @@ Bruno tests matched via:
 | Folder Convention | Tests in `__tests__/` match parent folder     |
 | Route Pattern     | Express/NestJS routes match Bruno URLs        |
 | Risk Scoring      | Auth +4, Database +3, Config +2, Shared +2    |
+| Cross-Package     | Monorepo package dependency +4 (High Risk)    |
 
 ## Examples
 
@@ -143,7 +187,7 @@ if [ "$risk" = "HIGH" ]; then
 fi
 ```
 
-### Run Only Impacted Tests
+### Run Only Impacted Tests (Manual)
 
 ```bash
 # Get impacted test files

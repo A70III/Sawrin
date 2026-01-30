@@ -119,6 +119,49 @@ Bruno tests ที่จับคู่จาก:
 - **MEDIUM**: shared services, auth files
 - **HIGH**: core utilities, database, หลาย modules
 
+## ฟีเจอร์ขั้นสูง
+
+### Interactive Mode
+
+เลือกและรัน test แบบ interactive:
+
+```bash
+npx sawrin --interactive
+```
+
+### Smart Caching
+
+Sawrin จะ cache dependency graph เพื่อให้การรันครั้งถัดไปรวดเร็วขึ้น
+
+- **เปิด/ปิด**: Cache เปิดอยู่โดยค่าเริ่มต้น ใช้ `--no-cache` เพื่อปิด
+- **ล้าง Cache**: ใช้คำสั่ง `--clear-cache` เพื่อล้างข้อมูลเก่า
+
+### Monorepo Support
+
+Sawrin ตรวจจับระบบ Monorepo โดยอัตโนมัติ:
+
+- npm/yarn/pnpm workspaces
+- Nx / Turborepo / Lerna
+- Cross-package dependencies (เช่น แก้ไข `packages/ui` จะกระทบ `apps/web`)
+
+### การตั้งค่า (Configuration)
+
+สร้างไฟล์ `.sawrinrc.json` หรือ `sawrin.config.js` เพื่อปรับแต่ง:
+
+```json
+{
+  "ignorePatterns": ["**/legacy/**"],
+  "testPatterns": ["**/*.spec.ts"],
+  "riskWeights": {
+    "authChange": 10
+  }
+}
+```
+
+### Task Runner Integration
+
+รองรับการตรวจจับ `Makefile` และ `Taskfile.yml` ระบบจะแนะนำและช่วยให้สั่งรัน task ที่เกี่ยวข้องกับส่วนที่กระทบได้
+
 ## Heuristics Reference
 
 | Heuristic         | กฎ                                           |
@@ -128,6 +171,7 @@ Bruno tests ที่จับคู่จาก:
 | Folder Convention | Tests ใน `__tests__/` ตรงกับ parent folder   |
 | Route Pattern     | Express/NestJS routes ตรงกับ Bruno URLs      |
 | Risk Scoring      | Auth +4, Database +3, Config +2, Shared +2   |
+| Cross-Package     | Monorepo package dependency +4 (High Risk)   |
 
 ## ตัวอย่างการใช้งาน
 
@@ -143,7 +187,7 @@ if [ "$risk" = "HIGH" ]; then
 fi
 ```
 
-### รันเฉพาะ Impacted Tests
+### รันเฉพาะ Impacted Tests (Manual)
 
 ```bash
 # ดึงรายการ test files ที่ได้รับผลกระทบ

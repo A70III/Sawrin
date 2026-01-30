@@ -162,3 +162,17 @@ rm -rf node_modules dist
 npm install
 npm run build
 ```
+
+### ปัญหาเรื่อง Cache
+
+หากเจอปัญหาข้อมูลไม่อัปเดตหรือทำงานผิดปกติ:
+
+```bash
+sawrin --clear-cache
+```
+
+หรือปิดการใช้งาน cache ชั่วคราว:
+
+```bash
+sawrin --no-cache
+```

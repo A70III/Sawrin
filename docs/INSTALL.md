@@ -162,3 +162,17 @@ rm -rf node_modules dist
 npm install
 npm run build
 ```
+
+### Cache Issues
+
+If you encounter stale data or strange behavior:
+
+```bash
+sawrin --clear-cache
+```
+
+Or disable cache temporarily:
+
+```bash
+sawrin --no-cache
+```
