@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import type { SawrinConfig } from "../types/index.js";
 import { logger } from "../shared/logger.js";
+import { matchGlobPattern } from "../shared/glob.js";
 
 /**
  * Configuration file names to search for (in order of priority)
@@ -184,50 +185,6 @@ export function isHighRiskFile(
 export function isLowRiskFile(filePath: string, config: SawrinConfig): boolean {
   const patterns = config.lowRiskFiles || [];
   return patterns.some((pattern) => matchGlobPattern(filePath, pattern));
-}
-
-/**
- * Simple glob pattern matching (supports * and ** and {a,b})
- */
-function matchGlobPattern(filePath: string, pattern: string): boolean {
-  // Normalize path separators
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const normalizedPattern = pattern.replace(/\\/g, "/");
-
-  // 1. Escape special regex characters except * ? { } ,
-  let regexPattern = normalizedPattern.replace(/[.+^$()|[\]\\]/g, "\\$&");
-
-  // 2. Handle brace expansion {a,b} -> (a|b)
-  regexPattern = regexPattern
-    .replace(/\{/g, "(")
-    .replace(/\}/g, ")")
-    .replace(/,/g, "|");
-
-  // 3. Handle wildcards
-  // Use placeholder for ** to avoid replacing * inside .* later
-  regexPattern = regexPattern
-    .replace(/\*\*/g, "%%GLOBSTAR%%")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\?/g, ".");
-
-  // If original pattern started with **/, allow optional leading path
-  if (normalizedPattern.startsWith("**/")) {
-    // regexPattern currently starts with %%GLOBSTAR%%/ due to step 3
-    // Remove the leading "%%GLOBSTAR%%/" (length 12 + 1 = 13)
-    const rest = regexPattern.slice(13);
-
-    // Restore placeholder in rest of string
-    const content = rest.replace(/%%GLOBSTAR%%/g, ".*");
-
-    const regex = new RegExp(`^(?:.*/)?${content}$`);
-    return regex.test(normalizedPath);
-  }
-
-  // Restore placeholder for normal cases
-  regexPattern = regexPattern.replace(/%%GLOBSTAR%%/g, ".*");
-
-  const regex = new RegExp(`^${regexPattern}$`);
-  return regex.test(normalizedPath);
 }
 
 /**

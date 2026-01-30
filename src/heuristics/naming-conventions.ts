@@ -69,45 +69,13 @@ export function isTestFile(filePath: string, config?: SawrinConfig): boolean {
 /**
  * Helper for glob-like matching (simplified for suffixes/wildcards)
  */
+import { matchGlobPattern } from "../shared/glob.js";
+
+/**
+ * Helper for glob-like matching (simplified for suffixes/wildcards)
+ */
 function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
-  return patterns.some((pattern) => {
-    const normalizedPath = filePath.replace(/\\/g, "/");
-    const normalizedPattern = pattern.replace(/\\/g, "/");
-
-    // 1. Escape special regex characters except * ? { } ,
-    let regexString = normalizedPattern.replace(/[.+^$()|[\]\\]/g, "\\$&");
-
-    // 2. Handle brace expansion {a,b} -> (a|b)
-    regexString = regexString
-      .replace(/\{/g, "(")
-      .replace(/\}/g, ")")
-      .replace(/,/g, "|");
-
-    // 3. Handle wildcards
-    // Use placeholder for ** to avoid replacing * inside .* later
-    regexString = regexString
-      .replace(/\*\*/g, "%%GLOBSTAR%%")
-      .replace(/\*/g, "[^/]*")
-      .replace(/\?/g, ".");
-
-    // Help with **/ prefix to match root
-    if (normalizedPattern.startsWith("**/")) {
-      // regexString currently starts with %%GLOBSTAR%%/
-      // Remove the leading "%%GLOBSTAR%%/" (length 13)
-      const rest = regexString.slice(13);
-
-      // Restore placeholder in rest of string
-      const content = rest.replace(/%%GLOBSTAR%%/g, ".*");
-
-      return new RegExp(`^(?:.*/)?${content}$`).test(normalizedPath);
-    }
-
-    // Restore placeholder for normal cases
-    regexString = regexString.replace(/%%GLOBSTAR%%/g, ".*");
-
-    const finalRegex = new RegExp(`^${regexString}$`);
-    return finalRegex.test(normalizedPath);
-  });
+  return patterns.some((pattern) => matchGlobPattern(filePath, pattern));
 }
 
 /**

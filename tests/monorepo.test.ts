@@ -242,5 +242,61 @@ describe("Monorepo Detection", () => {
 
       expect(resolved).toBeNull();
     });
+
+    it("should resolve subpaths using exports field", async () => {
+      writeFileSync(
+        resolve(TEST_DIR, "package.json"),
+        JSON.stringify({ workspaces: ["packages/*"] }),
+      );
+
+      const pkgDir = resolve(TEST_DIR, "packages/ui");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        resolve(pkgDir, "package.json"),
+        JSON.stringify({
+          name: "@app/ui",
+          exports: {
+            ".": "./src/index.ts",
+            "./button": "./src/components/Button.tsx",
+            "./utils/*": "./src/utils/*.ts",
+          },
+        }),
+      );
+
+      mkdirSync(resolve(pkgDir, "src/components"), { recursive: true });
+      writeFileSync(resolve(pkgDir, "src/index.ts"), "");
+      writeFileSync(resolve(pkgDir, "src/components/Button.tsx"), "");
+
+      const monorepo = await detectMonorepo(TEST_DIR);
+
+      const resolvedRoot = resolvePackageImport("@app/ui", monorepo);
+      expect(resolvedRoot).toBe("packages/ui/src/index.ts");
+
+      const resolvedButton = resolvePackageImport("@app/ui/button", monorepo);
+      expect(resolvedButton).toBe("packages/ui/src/components/Button.tsx");
+    });
+
+    it("should resolve subpaths without exports (legacy)", async () => {
+      writeFileSync(
+        resolve(TEST_DIR, "package.json"),
+        JSON.stringify({ workspaces: ["packages/*"] }),
+      );
+
+      const pkgDir = resolve(TEST_DIR, "packages/legacy");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        resolve(pkgDir, "package.json"),
+        JSON.stringify({ name: "@app/legacy" }),
+      );
+
+      mkdirSync(resolve(pkgDir, "src"), { recursive: true });
+      writeFileSync(resolve(pkgDir, "src/helper.ts"), "");
+
+      const monorepo = await detectMonorepo(TEST_DIR);
+
+      // Should find packages/legacy/src/helper.ts via "src" fallback or direct file mapping
+      const resolved = resolvePackageImport("@app/legacy/helper", monorepo);
+      expect(resolved).toBe("packages/legacy/src/helper.ts");
+    });
   });
 });

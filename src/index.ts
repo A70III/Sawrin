@@ -14,6 +14,7 @@ import {
   isGitRepository,
   getGitRoot,
 } from "./core/git.js";
+import { detectMonorepo } from "./core/monorepo.js";
 import { buildDependencyGraph } from "./core/dependency-graph.js";
 import { unitTestAnalyzer } from "./analyzers/unit-test-analyzer.js";
 import { apiTestAnalyzer } from "./analyzers/api-test-analyzer.js";
@@ -94,10 +95,14 @@ async function main(): Promise<void> {
     const config = await loadConfig(projectRoot);
 
     // Build dependency graph
+    // Detect monorepo structure first
+    const monorepo = await detectMonorepo(projectRoot);
+
     // Use unified function with options
     const dependencyGraph = await buildDependencyGraph(projectRoot, {
       noCache: options.noCache,
-      monorepo: null, // We'll add monorepo detection integration later if needed or let it handle itself
+      monorepo,
+      config,
     });
 
     // Create analyzer context

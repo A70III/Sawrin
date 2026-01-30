@@ -27,7 +27,7 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
 
     // 1. Direct test file changes
     for (const file of changedFiles) {
-      if (isTestFile(file.path) || isInTestFolder(file.path)) {
+      if (isTestFile(file.path, context.config) || isInTestFolder(file.path)) {
         addImpact(impactedTests, file.path, {
           type: "direct_change",
           description: "Test file was directly modified",
@@ -37,9 +37,9 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
 
     // 2. Naming convention matching
     for (const file of changedFiles) {
-      if (isTestFile(file.path)) continue;
+      if (isTestFile(file.path, context.config)) continue;
 
-      const matchedTests = matchTestFiles(file.path, allFiles);
+      const matchedTests = matchTestFiles(file.path, allFiles, context.config);
       for (const testFile of matchedTests) {
         addImpact(impactedTests, testFile, {
           type: "naming_convention",
@@ -52,7 +52,10 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
     // 3. Import graph traversal
     const affectedFiles = getAffectedFiles(changedPaths, dependencyGraph);
     for (const [affectedFile, depth] of affectedFiles) {
-      if (isTestFile(affectedFile) || isInTestFolder(affectedFile)) {
+      if (
+        isTestFile(affectedFile, context.config) ||
+        isInTestFolder(affectedFile)
+      ) {
         // This test imports a changed file (directly or transitively)
         const changedDep = findClosestChangedDependency(
           affectedFile,
@@ -76,7 +79,10 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
       const importers = dependencyGraph.importedBy.get(file.path);
       if (importers) {
         for (const importer of importers) {
-          if (isTestFile(importer) || isInTestFolder(importer)) {
+          if (
+            isTestFile(importer, context.config) ||
+            isInTestFolder(importer)
+          ) {
             // Already handled in import graph traversal
           }
         }
@@ -85,13 +91,13 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
 
     // 5. Co-located tests (same folder as changed file)
     for (const file of changedFiles) {
-      if (isTestFile(file.path)) continue;
+      if (isTestFile(file.path, context.config)) continue;
 
       const sourceFile = file.path;
       const sourceDir = getDirname(sourceFile);
 
       for (const testFile of allFiles) {
-        if (!isTestFile(testFile)) continue;
+        if (!isTestFile(testFile, context.config)) continue;
         if (impactedTests.has(testFile)) continue;
 
         const testDir = getDirname(testFile);

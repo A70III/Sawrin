@@ -6,7 +6,11 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, relative } from "path";
 import { glob } from "glob";
-import type { DependencyGraph, MonorepoInfo } from "../types/index.js";
+import type {
+  DependencyGraph,
+  MonorepoInfo,
+  SawrinConfig,
+} from "../types/index.js";
 import { resolvePackageImport } from "./monorepo.js";
 import { CacheManager } from "./cache.js";
 import { logger } from "../shared/logger.js";
@@ -22,9 +26,10 @@ export async function buildDependencyGraph(
   options: {
     noCache?: boolean;
     monorepo?: MonorepoInfo | null;
+    config?: SawrinConfig;
   } = {},
 ): Promise<DependencyGraph> {
-  const { noCache = false, monorepo = null } = options;
+  const { noCache = false, monorepo = null, config } = options;
 
   const graph: DependencyGraph = {
     imports: new Map(),
@@ -37,10 +42,19 @@ export async function buildDependencyGraph(
     // We can expose this via option later, for now internal check
   }
 
+  // Determine ignore patterns
+  const defaultIgnores = [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/*.d.ts",
+  ];
+  const ignorePatterns = config?.ignorePatterns || defaultIgnores;
+
   // Find all TypeScript/JavaScript files
   const files = await glob("**/*.{ts,tsx,js,jsx}", {
     cwd: rootPath,
-    ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.d.ts"],
+    ignore: ignorePatterns,
     absolute: false,
   });
 
