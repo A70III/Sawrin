@@ -104,6 +104,8 @@ describe("riskCalculator", () => {
   });
 });
 
+import { DEFAULT_CONFIG } from "../src/core/config.js";
+
 function createContext(
   changedFiles: Array<{
     path: string;
@@ -115,6 +117,7 @@ function createContext(
     dependencyGraph: emptyGraph(),
     projectRoot: "/project",
     allFiles: changedFiles.map((f) => f.path),
+    config: { ...DEFAULT_CONFIG },
   };
 }
 

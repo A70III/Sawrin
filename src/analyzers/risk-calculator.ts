@@ -16,15 +16,16 @@ import {
   getAffectedModules,
 } from "../heuristics/folder-conventions.js";
 import { isTestFile } from "../heuristics/naming-conventions.js";
+import { getEffectiveRiskWeight } from "../core/config.js";
+import { DefaultRiskThresholds } from "../shared/utils.js";
 
 /**
  * Risk thresholds
  */
-const THRESHOLDS = {
-  LOW: 3, // score <= 3 = LOW risk
-  MEDIUM: 7, // score <= 7 = MEDIUM risk
-  // score > 7 = HIGH risk
-};
+/**
+ * Risk thresholds
+ */
+const THRESHOLDS = DefaultRiskThresholds;
 
 /**
  * Risk weights for different signals
@@ -50,7 +51,7 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
   name: "risk-calculator",
 
   async analyze(context: AnalyzerContext): Promise<RiskAssessment> {
-    const { changedFiles } = context;
+    const { changedFiles, config } = context;
     const signals: RiskSignal[] = [];
     let score = 0;
 
@@ -77,19 +78,29 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
       const folderRisk = getFolderRiskLevel(file.path);
 
       if (folderRisk === "high") {
+        const weight = getEffectiveRiskWeight(
+          "highRiskFolder",
+          WEIGHTS.highRiskFolder,
+          config,
+        );
         signals.push({
           signal: "high_risk_folder",
-          weight: WEIGHTS.highRiskFolder,
+          weight,
           description: `High-risk folder: ${file.path}`,
         });
-        score += WEIGHTS.highRiskFolder;
+        score += weight;
       } else if (folderRisk === "medium") {
+        const weight = getEffectiveRiskWeight(
+          "mediumRiskFolder",
+          WEIGHTS.mediumRiskFolder,
+          config,
+        );
         signals.push({
           signal: "medium_risk_folder",
-          weight: WEIGHTS.mediumRiskFolder,
+          weight,
           description: `Medium-risk folder: ${file.path}`,
         });
-        score += WEIGHTS.mediumRiskFolder;
+        score += weight;
       }
     }
 
@@ -107,12 +118,17 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
     for (const file of sourceFiles) {
       const lowerPath = file.path.toLowerCase();
       if (authPatterns.some((p) => lowerPath.includes(p))) {
+        const weight = getEffectiveRiskWeight(
+          "authSecurityFile",
+          WEIGHTS.authSecurityFile,
+          config,
+        );
         signals.push({
           signal: "auth_security",
-          weight: WEIGHTS.authSecurityFile,
+          weight,
           description: `Authentication/security file modified: ${file.path}`,
         });
-        score += WEIGHTS.authSecurityFile;
+        score += weight;
         break; // Only count once
       }
     }
@@ -130,12 +146,17 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
     for (const file of sourceFiles) {
       const lowerPath = file.path.toLowerCase();
       if (dbPatterns.some((p) => lowerPath.includes(p))) {
+        const weight = getEffectiveRiskWeight(
+          "databaseFile",
+          WEIGHTS.databaseFile,
+          config,
+        );
         signals.push({
           signal: "database",
-          weight: WEIGHTS.databaseFile,
+          weight,
           description: `Database-related file modified: ${file.path}`,
         });
-        score += WEIGHTS.databaseFile;
+        score += weight;
         break; // Only count once
       }
     }
@@ -145,12 +166,17 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
     for (const file of sourceFiles) {
       const lowerPath = file.path.toLowerCase();
       if (configPatterns.some((p) => lowerPath.includes(p))) {
+        const weight = getEffectiveRiskWeight(
+          "configFile",
+          WEIGHTS.configFile,
+          config,
+        );
         signals.push({
           signal: "config",
-          weight: WEIGHTS.configFile,
+          weight,
           description: `Configuration file modified: ${file.path}`,
         });
-        score += WEIGHTS.configFile;
+        score += weight;
         break;
       }
     }
@@ -164,12 +190,17 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
           (p) => lowerPath.includes(`/${p}/`) || lowerPath.includes(`\\${p}\\`),
         )
       ) {
+        const weight = getEffectiveRiskWeight(
+          "sharedUtility",
+          WEIGHTS.sharedUtility,
+          config,
+        );
         signals.push({
           signal: "shared_utility",
-          weight: WEIGHTS.sharedUtility,
+          weight,
           description: `Shared utility modified: ${file.path}`,
         });
-        score += WEIGHTS.sharedUtility;
+        score += weight;
         break;
       }
     }
@@ -184,12 +215,17 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
           (p) => lowerPath.includes(`/${p}/`) || fileName.startsWith(p),
         )
       ) {
+        const weight = getEffectiveRiskWeight(
+          "coreFile",
+          WEIGHTS.coreFile,
+          config,
+        );
         signals.push({
           signal: "core_file",
-          weight: WEIGHTS.coreFile,
+          weight,
           description: `Core file modified: ${file.path}`,
         });
-        score += WEIGHTS.coreFile;
+        score += weight;
         break;
       }
     }
@@ -199,7 +235,12 @@ export const riskCalculator: Analyzer<RiskAssessment> = {
     const affectedModules = getAffectedModules(paths);
     if (affectedModules.size > 1) {
       const additionalModules = affectedModules.size - 1;
-      const weight = WEIGHTS.multipleModules * additionalModules;
+      const weight =
+        getEffectiveRiskWeight(
+          "multipleModules",
+          WEIGHTS.multipleModules,
+          config,
+        ) * additionalModules;
       signals.push({
         signal: "multiple_modules",
         weight,

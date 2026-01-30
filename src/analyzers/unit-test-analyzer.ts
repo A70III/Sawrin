@@ -3,13 +3,13 @@
 // ============================================
 // Detects impacted unit tests using multiple heuristics
 
-import type { ImpactedFile, ImpactReason } from "../types/index.js";
+import type { ImpactedFile } from "../types/index.js";
 import type { Analyzer, AnalyzerContext } from "./base-analyzer.js";
 import { getAffectedFiles } from "../core/dependency-graph.js";
+import { addImpact, getDirname } from "../shared/utils.js";
 import {
   isTestFile,
   matchTestFiles,
-  getSourceFileFromTest,
 } from "../heuristics/naming-conventions.js";
 import { isInTestFolder } from "../heuristics/folder-conventions.js";
 
@@ -21,7 +21,7 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
 
   async analyze(context: AnalyzerContext): Promise<ImpactedFile[]> {
     const { changedFiles, dependencyGraph, allFiles } = context;
-    const impactedTests = new Map<string, ImpactReason[]>();
+    const impactedTests = new Map<string, any[]>();
 
     const changedPaths = changedFiles.map((f) => f.path);
 
@@ -125,30 +125,6 @@ export const unitTestAnalyzer: Analyzer<ImpactedFile[]> = {
 };
 
 /**
- * Add an impact reason to a test file
- */
-function addImpact(
-  map: Map<string, ImpactReason[]>,
-  testFile: string,
-  reason: ImpactReason,
-): void {
-  if (!map.has(testFile)) {
-    map.set(testFile, []);
-  }
-
-  const reasons = map.get(testFile)!;
-
-  // Avoid duplicate reasons
-  const isDuplicate = reasons.some(
-    (r) => r.type === reason.type && r.relatedFile === reason.relatedFile,
-  );
-
-  if (!isDuplicate) {
-    reasons.push(reason);
-  }
-}
-
-/**
  * Find the closest changed file in the dependency chain
  */
 function findClosestChangedDependency(
@@ -178,15 +154,6 @@ function findClosestChangedDependency(
   }
 
   return changedPaths[0] || null;
-}
-
-/**
- * Get directory name from path
- */
-function getDirname(path: string): string {
-  const parts = path.replace(/\\/g, "/").split("/");
-  parts.pop();
-  return parts.join("/");
 }
 
 export default unitTestAnalyzer;

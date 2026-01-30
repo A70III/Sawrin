@@ -4,15 +4,15 @@
 // Detects impacted Bruno API tests
 
 import { readFileSync, existsSync } from "fs";
-import { basename, dirname, resolve } from "path";
+import { dirname, resolve } from "path";
 import { glob } from "glob";
 import type {
   ImpactedFile,
-  ImpactReason,
   BrunoTestFile,
   DetectedRoute,
 } from "../types/index.js";
 import type { Analyzer, AnalyzerContext } from "./base-analyzer.js";
+import { addImpact } from "../shared/utils.js";
 import {
   extractRoutes,
   routeMatches,
@@ -27,7 +27,7 @@ export const apiTestAnalyzer: Analyzer<ImpactedFile[]> = {
 
   async analyze(context: AnalyzerContext): Promise<ImpactedFile[]> {
     const { changedFiles, projectRoot } = context;
-    const impactedTests = new Map<string, ImpactReason[]>();
+    const impactedTests = new Map<string, any[]>();
 
     // Find Bruno collection path
     const brunoPath = await findBrunoPath(projectRoot);
@@ -236,30 +236,6 @@ function extractModuleFolder(filePath: string): string | null {
   }
 
   return null;
-}
-
-/**
- * Add an impact reason
- */
-function addImpact(
-  map: Map<string, ImpactReason[]>,
-  testFile: string,
-  reason: ImpactReason,
-): void {
-  if (!map.has(testFile)) {
-    map.set(testFile, []);
-  }
-
-  const reasons = map.get(testFile)!;
-
-  // Avoid duplicates
-  const isDuplicate = reasons.some(
-    (r) => r.type === reason.type && r.description === reason.description,
-  );
-
-  if (!isDuplicate) {
-    reasons.push(reason);
-  }
 }
 
 export default apiTestAnalyzer;

@@ -6,6 +6,7 @@ import type {
   ChangedFile,
   DependencyGraph,
   ImpactedFile,
+  SawrinConfig,
 } from "../types/index.js";
 
 /**
@@ -16,6 +17,7 @@ export interface AnalyzerContext {
   dependencyGraph: DependencyGraph;
   projectRoot: string;
   allFiles: string[];
+  config: SawrinConfig;
 }
 
 /**

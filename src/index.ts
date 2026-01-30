@@ -82,11 +82,16 @@ async function main(): Promise<void> {
       console.log("🧹 Cache cleared");
     }
 
+    // Load configuration
+    const { loadConfig } = await import("./core/config.js");
+    const config = await loadConfig(projectRoot);
+
     // Build dependency graph
-    const dependencyGraph = await buildDependencyGraph(
-      projectRoot,
-      options.noCache,
-    );
+    // Use unified function with options
+    const dependencyGraph = await buildDependencyGraph(projectRoot, {
+      noCache: options.noCache,
+      monorepo: null, // We'll add monorepo detection integration later if needed or let it handle itself
+    });
 
     // Create analyzer context
     const context = {
@@ -94,6 +99,7 @@ async function main(): Promise<void> {
       dependencyGraph,
       projectRoot,
       allFiles,
+      config,
     };
 
     // Run analyzers

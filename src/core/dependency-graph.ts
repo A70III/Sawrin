@@ -13,10 +13,18 @@ import { CacheManager } from "./cache.js";
 /**
  * Build the dependency graph for a project
  */
+/**
+ * Build the dependency graph for a project
+ */
 export async function buildDependencyGraph(
   rootPath: string,
-  noCache: boolean = false,
+  options: {
+    noCache?: boolean;
+    monorepo?: MonorepoInfo | null;
+  } = {},
 ): Promise<DependencyGraph> {
+  const { noCache = false, monorepo = null } = options;
+
   const graph: DependencyGraph = {
     imports: new Map(),
     importedBy: new Map(),
@@ -49,11 +57,16 @@ export async function buildDependencyGraph(
       if (cachedImports) {
         imports = new Set(cachedImports);
       } else {
-        imports = extractImports(absolutePath, rootPath);
+        // Use unified extraction logic
+        imports = monorepo
+          ? extractImportsWithMonorepo(absolutePath, rootPath, monorepo)
+          : extractImports(absolutePath, rootPath);
         cache.set(file, hash, Array.from(imports));
       }
     } else {
-      imports = extractImports(absolutePath, rootPath);
+      imports = monorepo
+        ? extractImportsWithMonorepo(absolutePath, rootPath, monorepo)
+        : extractImports(absolutePath, rootPath);
     }
 
     graph.imports.set(file, imports);
@@ -79,69 +92,14 @@ export async function buildDependencyGraph(
 }
 
 /**
- * Build the dependency graph with monorepo support
+ * @deprecated Use buildDependencyGraph with options object
  */
 export async function buildDependencyGraphWithMonorepo(
   rootPath: string,
   monorepo: MonorepoInfo | null,
   noCache: boolean = false,
 ): Promise<DependencyGraph> {
-  const graph: DependencyGraph = {
-    imports: new Map(),
-    importedBy: new Map(),
-    exports: new Map(),
-  };
-
-  const cache = noCache ? null : new CacheManager(rootPath);
-
-  // Find all TypeScript/JavaScript files
-  const files = await glob("**/*.{ts,tsx,js,jsx}", {
-    cwd: rootPath,
-    ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.d.ts"],
-    absolute: false,
-  });
-
-  // Build imports for each file
-  for (const file of files) {
-    const absolutePath = resolve(rootPath, file);
-
-    let imports: Set<string>;
-
-    if (cache) {
-      const content = readFileSync(absolutePath, "utf-8");
-      const hash = cache.getFileHash(content);
-      const cachedImports = cache.get(file, hash);
-
-      if (cachedImports) {
-        imports = new Set(cachedImports);
-      } else {
-        imports = extractImportsWithMonorepo(absolutePath, rootPath, monorepo);
-        cache.set(file, hash, Array.from(imports));
-      }
-    } else {
-      imports = extractImportsWithMonorepo(absolutePath, rootPath, monorepo);
-    }
-
-    graph.imports.set(file, imports);
-
-    // Build reverse mapping (importedBy)
-    for (const importedFile of imports) {
-      if (!graph.importedBy.has(importedFile)) {
-        graph.importedBy.set(importedFile, new Set());
-      }
-      graph.importedBy.get(importedFile)!.add(file);
-    }
-
-    // Extract exports
-    const exports = extractExports(absolutePath);
-    graph.exports.set(file, exports);
-  }
-
-  if (cache) {
-    cache.save();
-  }
-
-  return graph;
+  return buildDependencyGraph(rootPath, { monorepo, noCache });
 }
 
 /**

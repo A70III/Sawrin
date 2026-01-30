@@ -1,162 +1,62 @@
-# Sawrin
+# Sawrin 🦅
 
-**Heuristic-based diff impact analyzer for TypeScript/Node.js projects**
-
-Sawrin analyzes git diffs and determines which tests and APIs are likely impacted by your changes. It uses simple, explainable heuristics—no AI, no ML, just deterministic rules.
+**Heuristic-based diff impact analyzer for TypeScript/Node.js**
+No AI. No Magic. Just deterministic dependency analysis.
 
 [![npm version](https://img.shields.io/npm/v/sawrin.svg)](https://www.npmjs.com/package/sawrin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## What It Does
+---
 
-- **Analyzes git diffs** to identify changed files
-- **Detects impacted unit tests** via import graph traversal and naming conventions
-- **Detects impacted API tests** (Bruno collections) via route matching
-- **Calculates risk level** (LOW/MEDIUM/HIGH) based on what was changed
-- **Explains why** each file is impacted
+## 🚀 Why Sawrin?
 
-## What It Does NOT Do
+- **Smart Analysis**: Automatically finds tests related to your code changes.
+- **Monorepo Native**: Supports Nx, Lerna, Turbo, and Workspaces out of the box.
+- **Interactive Mode**: Select and run impacted tests directly from the CLI.
+- **Instant Feedback**: Caches dependency graphs for blazing fast re-runs.
+- **Risk Assessment**: Flags high-risk changes (Auth, Schemas, Shared Utils).
 
-- ❌ Use AI/ML for predictions
-- ❌ Require coverage data
-- ❌ Perform deep AST analysis
-- ❌ Support non-TypeScript/JavaScript projects
-- ❌ Guarantee 100% accuracy (targets ~70%)
+## 📦 Quick Start
 
-## Installation
+Run in your project root to analyze uncommitted changes:
 
 ```bash
-npm install -g sawrin
-# or
 npx sawrin
 ```
 
-## Usage
+## 🛠️ Key Commands
 
-```bash
-# Analyze current working tree changes
-npx sawrin
+| Command                    | Description                             |
+| :------------------------- | :-------------------------------------- |
+| `npx sawrin`               | Analyze working tree vs HEAD            |
+| `npx sawrin --interactive` | **Interactive Mode** - Pick & run tests |
+| `npx sawrin --base main`   | Compare current branch vs `main`        |
+| `npx sawrin --json`        | Output JSON for CI/CD pipelines         |
+| `npx sawrin --bruno ./api` | Analyze Bruno API tests                 |
 
-# Compare against a branch
-npx sawrin --base main
+## ⚙️ Configuration
 
-# Compare specific commits
-npx sawrin --base HEAD~5 --head HEAD
+Create `.sawrinrc.json` to customize behavior:
 
-# Show verbose output with all reasons
-npx sawrin --verbose
-
-# Output as JSON
-npx sawrin --json
+```json
+{
+  "ignorePatterns": ["legacy/**", "**/*.stories.ts"],
+  "riskWeights": { "auth": 10 }
+}
 ```
 
-## Example Output
+## 🧠 How It Works
 
-```
-🔍 Change Impact Summary
-──────────────────────────────────────────────────
+Sawrin builds a **Dependency Graph** of your project. When a file changes, it:
 
-📁 Changed Files (2)
-  ~ src/services/user.service.ts
-  ~ src/utils/auth.ts
+1.  **Traverses Imports**: Finds every file that imports the changed file.
+2.  **Matches Names**: Finds tests like `foo.test.ts` for `foo.ts`.
+3.  **Matches Routes**: Links API routes to Bruno collections.
 
-📋 Impacted Unit Tests (2)
-  • user.service.spec.ts
-    → Test matches source file naming pattern
-  • auth.spec.ts
-    → Directly imports changed file
+It then assigns a **Risk Score** based on the criticality of modules touched (e.g., Database vs UI).
 
-🌐 Impacted API Tests - Bruno (2)
-  • users/get-user.bru
-    → Route GET /users/:id matches test URL
-  • auth/login.bru
-    → Bruno folder "auth" matches module "auth"
+---
 
-──────────────────────────────────────────────────
-⚠️ Risk Level: MEDIUM
+## 📝 License
 
-Reason:
-  • Authentication/security file modified
-  • Shared utility modified
-```
-
-## Heuristics
-
-Sawrin uses the following heuristics to detect impact:
-
-| Heuristic             | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| **Import Graph**      | Traces which files import the changed files      |
-| **Naming Convention** | Matches `*.ts` → `*.spec.ts`, `*.test.ts`        |
-| **Folder Convention** | Detects co-located tests (`__tests__/`, `test/`) |
-| **Route Patterns**    | Extracts Express/NestJS routes from code         |
-| **Bruno Matching**    | Matches routes to Bruno test URLs and folders    |
-| **Risk Scoring**      | Weights auth, database, config, and shared code  |
-
-### Risk Level Signals
-
-| Signal             | Weight    | Example                    |
-| ------------------ | --------- | -------------------------- |
-| Auth/Security file | +4        | `auth.ts`, `security/`     |
-| Database file      | +3        | `migrations/`, `schema.ts` |
-| Core file          | +3        | `core/`, `main.ts`         |
-| Config file        | +2        | `config.ts`, `.env`        |
-| Shared utility     | +2        | `utils/`, `helpers/`       |
-| Multiple modules   | +2/module | Changes spanning folders   |
-
-## CLI Options
-
-| Option             | Description                               |
-| ------------------ | ----------------------------------------- |
-| `-b, --base <ref>` | Base commit/branch to compare from        |
-| `-h, --head <ref>` | Head commit to compare to (default: HEAD) |
-| `--bruno <path>`   | Path to Bruno collection directory        |
-| `-v, --verbose`    | Show detailed output with all reasons     |
-| `--json`           | Output results as JSON                    |
-| `--staged`         | Analyze staged changes only               |
-
-## Project Structure
-
-```
-sawrin/
-├── src/
-│   ├── index.ts           # CLI entry point
-│   ├── cli/               # Command-line parsing
-│   ├── core/              # Diff parsing, git ops, dependency graph
-│   ├── analyzers/         # Unit test, API test, risk analyzers
-│   ├── heuristics/        # Naming, folder, route conventions
-│   ├── reporter/          # Output formatting
-│   └── types/             # TypeScript interfaces
-└── tests/                 # Unit tests
-```
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run in development
-npm run dev
-
-# Run tests
-npm test
-
-# Build for production
-npm run build
-```
-
-## Design Philosophy
-
-1. **Clarity over Completeness** — Focus on ~70% accuracy with explainable results
-2. **Heuristics over Configuration** — Sensible defaults, minimal setup required
-3. **Explainability over Cleverness** — Every impact has a clear "why"
-4. **OSS-first** — Designed for open-source developer workflows
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
-
-## License
-
-MIT
+[MIT](LICENSE)
